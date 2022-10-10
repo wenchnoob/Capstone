@@ -1,0 +1,4 @@
+add instance frame (wenchy, [], [], {}, {})
+view instance frame wenchy
+update instance frame wenchy add superclasses [engineer]
+view instance frame wenchy
