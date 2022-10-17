@@ -1,5 +1,4 @@
 import string
-from common.frame import FrameSpecifier
 
 
 class LexerError(RuntimeError):
@@ -7,18 +6,14 @@ class LexerError(RuntimeError):
 
 
 class Token:
+    TELL = 'TELL'
+    ASK = 'ASK'
     ADD = 'ADD'
-    UPDATE = 'UPDATE'
+    CLASS = 'CLASS'
+    INSTANCE = 'INSTANCE'
     DELETE = 'DELETE'
-    VIEW = 'VIEW'
-    CLASS = FrameSpecifier.CLASS
-    INSTANCE = FrameSpecifier.INSTANCE
-    FRAME = 'FRAME'
-    VIEW_ALL = 'VIEWALL'
-    SUPERCLASSES = 'SUPERCLASSES'
-    SUBCLASSES = 'SUBCLASSES'
-    PROPERTIES = 'PROPERTIES'
-    RELATIONS = 'RELATIONS'
+    UPDATE = 'UPDATE'
+    TYPE = 'TYPE'
     OP_PAREN = 'OP_PAREN'
     CL_PAREN = 'CL_PAREN'
     OP_SQUARE = 'OP_SQUARE'
@@ -27,28 +22,25 @@ class Token:
     CL_CURLY = 'CL_CURLY'
     COMMA = 'COMMA'
     COLON = 'COLON'
+    STR = 'STR'
+
+    ## Maybe
     SEMICOLON = "SEMICOLON"
     DOT = "DOT"
     FILE = "FILE"
     END_FILE = "ENDFILE"
     FORWARD_SLASH = "FORWARD_SLASH"
-    STR = 'STR'
+
 
     TYPES = {
+        TELL: TELL,
+        ASK: ASK,
         ADD: ADD,
-        UPDATE: UPDATE,
-        DELETE: DELETE,
-        VIEW: VIEW,
         CLASS: CLASS,
         INSTANCE: INSTANCE,
-        FRAME: FRAME,
-        SUPERCLASSES: SUPERCLASSES,
-        SUBCLASSES: SUBCLASSES,
-        PROPERTIES: PROPERTIES,
-        RELATIONS: RELATIONS,
-        FILE: FILE,
-        VIEW_ALL: VIEW_ALL,
-        END_FILE: END_FILE,
+        DELETE: DELETE,
+        UPDATE: UPDATE,
+        TYPE: TYPE,
         "(": OP_PAREN,
         ")": CL_PAREN,
         "[": OP_SQUARE,
@@ -57,9 +49,6 @@ class Token:
         "}": CL_CURLY,
         ",": COMMA,
         ":": COLON,
-        ";": SEMICOLON,
-        "/": FORWARD_SLASH,
-        ".": DOT
     }
 
     def __init__(self, token_type, value):
@@ -78,18 +67,14 @@ class Token:
 
 
 class Tokenizer:
-    def __init__(self, text=""):
+    def __init__(self, text: str = ""):
         self.text = text
-        self.idx = 0
+        self.end = len(self.text)
         self.start = 0
-
-    def init(self, text: str):
-        self.text = text
         self.idx = 0
-        self.start = 0
 
     def has_next_token(self):
-        return len(self.text) > self.idx
+        return self.end > self.idx
 
     def next_token(self):
         if not self.has_next_token():
@@ -98,43 +83,46 @@ class Tokenizer:
         self.idx = self.start
         cur = self.text[self.idx]
         match cur:
-            case '(' | ')' | '[' | ']' | '{' | '}' | ',' | ':' | ';' | '/' | '.':
+            case '(' | ')' | '[' | ']' | '{' | '}' | ',' | ':':
                 self.idx += 1
                 self.start = self.idx
                 return Token(Token.type(cur), cur)
             case '"':
-                self.idx += 1
-                try:
-                    cur = self.text[self.idx]
-                except IndexError:
-                    raise LexerError("Unexpected end of input while parsing string")
-                while cur != '"':
-                    self.idx += 1
-                    try:
-                        cur = self.text[self.idx]
-                    except IndexError:
-                        raise LexerError("Unexpected end of input while parsing string")
-
-                tok = self.text[self.start+1:self.idx].upper()
-                self.start = self.idx+1
-                return Token(Token.type(tok), tok)
-            case other:
-                if other in string.whitespace:
+                return self.qstring()
+            case _:
+                # if whitespace skip
+                if cur in string.whitespace:
                     self.idx += 1
                     self.start = self.idx
                     return self.next_token()
+                else:
+                    return self.string()
 
-                if cur in string.ascii_letters or cur in string.digits:
-                    while cur in string.ascii_letters or cur in string.digits and self.has_next_token():
-                        self.idx += 1
-                        cur = self.text[self.idx] if self.has_next_token() else '.'
+    def qstring(self):
+        self.idx += 1
+        s = self.string()
+        s.token_type = Token.STR
+        self.idx += 1
+        return s
+    def string(self):
+        cur = self.text[self.idx] if self.has_next_token() else ''
 
-                    tok = self.text[self.start:self.idx ].upper()
-                    self.start = self.idx
-                    return Token(Token.type(tok), tok)
+        if cur in string.ascii_letters or cur in string.digits:
+            while cur in string.ascii_letters or cur in string.digits and self.has_next_token():
+                self.idx += 1
+                cur = self.text[self.idx] if self.has_next_token() else ''
 
-                raise LexerError(f"Unexpected token: {cur}")
+            tok = self.text[self.start:self.idx].upper()
+            self.start = self.idx
+            return Token(Token.type(tok), tok)
 
+        raise LexerError(f"Unexpected token: {cur}")
 
-#tokenizer = Tokenizer('ADD INSTANCE FRAME (Wenchy, [], [], {}, {"is a":[engineer, artist, male]})"')
+# TELL ADD CLASS Human {Animal, Mammal} [AGE:{number(x)}]
 
+def main():
+    lexer = Tokenizer(input(">"))
+    while lexer.has_next_token():
+        print(lexer.next_token())
+
+main()

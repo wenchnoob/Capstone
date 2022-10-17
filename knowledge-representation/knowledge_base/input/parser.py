@@ -7,6 +7,38 @@ class ParseError(RuntimeError):
     pass
 
 
+class Node:
+    TELL = 'TELL'
+
+    ADD_CLASS = 'ADD_CLASS'
+    DELETE_CLASS = 'DELETE_CLASS'
+
+    UPDATE_CLASS = 'UPDATE_CLASS'
+    ADD_SLOT = 'ADD_SLOT'
+    DELETE_SLOT = 'DELETE_SLOT'
+
+    UPDATE_SLOT = 'UPDATE_SLOT'
+    ADD_FACET = 'ADD_FACET'
+    DELETE_FACET = 'DELETE_FACET'
+
+    ASK = 'ASK'
+
+    # Maybe
+    UPDATE_FACET = 'UPDATE_FACET'
+
+    def __init__(self, operation_type=None, children=None):
+        if children is None:
+            children = []
+        self.operation_type = operation_type
+        self.children = children
+
+class Tell(Node):
+    def __init__(self, children):
+        super().__init__(Node.TELL, children)
+
+class AddClass(Node):
+    def __init__(self):
+
 class KBOperation:
     ADD = "ADD"
     UPDATE_ADD = "UPDATE_ADD"
@@ -74,7 +106,7 @@ frame_name ::=
 
 
 class Parser:
-    def __init__(self, text: str = None):
+    def __init__(self, text: str):
         self.tokenizer = None
         self.lookahead = None
         if text is not None:
@@ -256,5 +288,5 @@ class Parser:
             return KBOperation(operation, Frame(FrameSpecifier(frame_type, frame_name), set(), set(),
                                                 self.properties(), {}))
         elif target_part == Token.RELATIONS:
-            return KBOperation(operation, Frame(FrameSpecifier(frame_type, frame_name), set(), set(), {}, self.relations()))
-
+            return KBOperation(operation,
+                               Frame(FrameSpecifier(frame_type, frame_name), set(), set(), {}, self.relations()))
