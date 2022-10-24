@@ -14,6 +14,10 @@ class Token:
     DELETE = 'DELETE'
     UPDATE = 'UPDATE'
     TYPE = 'TYPE'
+    NAME = 'NAME'
+    SUPER = 'SUPER'
+    SLOT = 'SLOT'
+    FACET = 'FACET'
     OP_PAREN = 'OP_PAREN'
     CL_PAREN = 'CL_PAREN'
     OP_SQUARE = 'OP_SQUARE'
@@ -23,6 +27,7 @@ class Token:
     COMMA = 'COMMA'
     COLON = 'COLON'
     STR = 'STR'
+    TO = 'TO'
 
     ## Maybe
     SEMICOLON = "SEMICOLON"
@@ -38,9 +43,14 @@ class Token:
         ADD: ADD,
         CLASS: CLASS,
         INSTANCE: INSTANCE,
+        NAME: NAME,
+        SUPER: SUPER,
+        SLOT: SLOT,
+        FACET: FACET,
         DELETE: DELETE,
         UPDATE: UPDATE,
         TYPE: TYPE,
+        TO: TO,
         "(": OP_PAREN,
         ")": CL_PAREN,
         "[": OP_SQUARE,
@@ -68,7 +78,7 @@ class Token:
 
 class Tokenizer:
     def __init__(self, text: str = ""):
-        self.text = text
+        self.text = text.upper()
         self.end = len(self.text)
         self.start = 0
         self.idx = 0
@@ -107,8 +117,8 @@ class Tokenizer:
     def string(self):
         cur = self.text[self.idx] if self.has_next_token() else ''
 
-        if cur in string.ascii_letters or cur in string.digits:
-            while cur in string.ascii_letters or cur in string.digits and self.has_next_token():
+        if cur in string.ascii_letters or cur in string.digits or cur == '_':
+            while (cur in string.ascii_letters or cur in string.digits or cur == '_') and self.has_next_token():
                 self.idx += 1
                 cur = self.text[self.idx] if self.has_next_token() else ''
 
@@ -118,11 +128,4 @@ class Tokenizer:
 
         raise LexerError(f"Unexpected token: {cur}")
 
-# TELL ADD CLASS Human {Animal, Mammal} [AGE:{number(x)}]
-
-def main():
-    lexer = Tokenizer(input(">"))
-    while lexer.has_next_token():
-        print(lexer.next_token())
-
-main()
+# TELL ADD CLASS Human {Animal, Mammal} [AGE:12{}]

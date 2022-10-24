@@ -1,0 +1,12 @@
+TELL ADD CLASS Human {Animal, Mammal} [Age:]
+TELL ADD INSTANCE Wenchy {Human} [Age:19, Gender:Male]
+TELL UPDATE Wenchy TYPE TO CLASS
+TELL UPDATE Wenchy NAME TO Rimuru
+TELL UPDATE Rimuru ADD SUPER Slime
+TELL UPDATE Rimuru DELETE SUPER Human
+TELL UPDATE Rimuru ADD SLOT Stamina:1000{number(Stamina)}
+TELL UPDATE Rimuru DELETE SLOT Gender
+TELL UPDATE Rimuru UPDATE SLOT Stamina ADD FACET greater(Stamina, 10000)
+TELL UPDATE Rimuru UPDATE SLOT Stamina DELETE FACET greater
+TELL DELETE Rimuru
+

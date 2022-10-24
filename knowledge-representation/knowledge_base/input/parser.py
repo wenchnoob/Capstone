@@ -1,6 +1,4 @@
-from typing import Iterable, Union
 from knowledge_base.input.lexer import Tokenizer, Token
-from common.frame import Frame, FrameSpecifier
 
 
 class ParseError(RuntimeError):
@@ -10,119 +8,64 @@ class ParseError(RuntimeError):
 class Node:
     TELL = 'TELL'
 
-    ADD_CLASS = 'ADD_CLASS'
-    DELETE_CLASS = 'DELETE_CLASS'
+    ADD_FRAME = 'ADD_FRAME'
+    CLASS = 'CLASS'
+    INSTANCE = 'INSTANCE'
+    DELETE_FRAME = 'DELETE_FRAME'
 
-    UPDATE_CLASS = 'UPDATE_CLASS'
+    UPDATE_FRAME = 'UPDATE_FRAME'
+    UPDATE_TYPE = 'UPDATE_TYPE'
+    UPDATE_NAME = 'UPDATE_NAME'
+    ADD_SUPER = 'ADD_SUPER'
+    DELETE_SUPER = 'DELETE_SUPER'
     ADD_SLOT = 'ADD_SLOT'
     DELETE_SLOT = 'DELETE_SLOT'
 
     UPDATE_SLOT = 'UPDATE_SLOT'
+    FACET = 'FACET'
     ADD_FACET = 'ADD_FACET'
     DELETE_FACET = 'DELETE_FACET'
 
     ASK = 'ASK'
+    TYPE = 'TYPE'
+
+    LITERAL = 'LITERAL'
+    LIST = 'LIST'
+    SLOT = 'SLOT'
 
     # Maybe
     UPDATE_FACET = 'UPDATE_FACET'
 
-    def __init__(self, operation_type=None, children=None):
+    def __init__(self, type=None, value=None, children=None):
         if children is None:
             children = []
-        self.operation_type = operation_type
+        self.type = type
+        self.value = value
         self.children = children
 
-class Tell(Node):
-    def __init__(self, children):
-        super().__init__(Node.TELL, children)
+    def add_child(self, child):
+        self.children.append(child)
 
-class AddClass(Node):
-    def __init__(self):
+    def __str__(self):
+        return self.str(0)
 
-class KBOperation:
-    ADD = "ADD"
-    UPDATE_ADD = "UPDATE_ADD"
-    UPDATE_DELETE = "UPDATE_DELETE"
-    DELETE = "DELETE"
-    VIEW = "VIEW"
-    VIEW_ALL = "VIEWALL"
-    PROPERTIES = "PROPERTIES"
-    RELATIONS = "RELATIONS"
-
-    def __init__(self, op_type: str, frame: Frame = None):
-        self.op_type = op_type
-        self.frame = frame
-
-    def __repr__(self):
-        return f"(Operation={self.op_type}, Frame={self.frame})"
-
-
-'''
-Lang:
-
-statement_list ::=
-    statement; statement_list |
-    ε
-
-statement ::=
-    ADD  frame |
-    UPDATE [INSTANCE | CLASS] FRAME frame_name update_statement |
-    (DELETE | VIEW) [INSTANCE | CLASS] FRAME frame_name
-    
-    
-frame ::=
-    [INSTANCE | CLASS] FRAME (frame_name, list, list, map, map)
-
-list ::=
-    [ list_elems ]
-
-list_elems ::=
-    ne_list_elems | ε
-
-ne_list_elems ::=
-    (STR | NUM | BOOL | list) , ne_list_elems |
-    (STR | NUM | BOOL | list)
-
-map ::=
-    { pairs }
-
-pairs ::=
-    ne_pairs | ε
-
-ne_pairs ::=
-    pair, ne_pairs |
-    pair
-
-pair ::=
-    STR:(STR | NUM | BOOL | list | ε)
-
-update_statement ::=
-    (ADD | DELETE) (SUPERCLASS | SUBCLASS) frame_name  |
-    (ADD | DELETE) (PROPERTIES | RELATIONS) (properties | relation)
-
-frame_name ::=
-    STR
-'''
+    def str(self, d):
+        space = "    "
+        s = f"{space * d}(Type={self.type}, Value={self.value})\n"
+        for c in self.children:
+            s += c.str(d + 1)
+        return s
 
 
 class Parser:
     def __init__(self, text: str):
-        self.tokenizer = None
-        self.lookahead = None
-        if text is not None:
-            self.init(text)
-
-    def init(self, text: str):
         self.tokenizer = Tokenizer(text)
         self.lookahead = self.tokenizer.next_token()
 
     def advance(self):
         self.lookahead = self.tokenizer.next_token()
 
-    def fail(self):
-        raise ParseError(f"unexpected token {self.lookahead}")
-
-    def eat(self, token_type: str) -> Union[int, str, bool]:
+    def eat(self, token_type: str) -> str:
         if self.lookahead is None:
             raise ParseError(f"unexpected end of input")
         if self.lookahead.token_type != token_type:
@@ -131,162 +74,190 @@ class Parser:
         self.advance()
         return value
 
-    def eat_ls(self, token_types: Iterable[str]) -> Union[int, str, bool]:
+    def EOF(self):
         if self.lookahead is None:
-            raise ParseError(f"unexpected end of input")
-        if self.lookahead.token_type not in token_types:
-            self.fail()
-        value = self.lookahead.value
+            return True
+        return False
+
+    def fail(self):
+        raise ParseError(f"unexpected token {self.lookahead}")
+
+    def parse(self) -> Node:
+        root = Node()
+
+        while not self.EOF():
+            match self.lookahead.token_type:
+                case Token.TELL:
+                    root.add_child(self.tell())
+                case Token.ASK:
+                    root.add_child(self.ask())
+                case _:
+                    self.fail()
+
+        return root
+
+    def tell(self) -> Node:
         self.advance()
-        return value
 
-    def parse(self, text: str = None) -> [KBOperation]:
-        if text is not None:
-            self.init(text)
+        tell = Node(Node.TELL)
 
-        operations = []
-        while self.tokenizer.has_next_token():
-            stmt = self.statement()
-            if isinstance(stmt, list):
-                operations.extend(stmt)
-            else:
-                operations.append(stmt)
-            if self.lookahead is not None and self.lookahead.token_type == Token.SEMICOLON:
-                self.eat(Token.SEMICOLON)
-
-        return operations
-
-    def statement(self):
-        if self.lookahead is None:
-            raise ParseError(f"unexpected end of input")
         match self.lookahead.token_type:
             case Token.ADD:
-                return self.add()
+                tell.add_child(self.add_frame())
             case Token.UPDATE:
-                return self.update()
-            case Token.DELETE | Token.VIEW:
-                return self.delete_or_view()
-            case Token.FILE:
-                return self.file()
-            case Token.VIEW_ALL:
-                return KBOperation(KBOperation.VIEW_ALL)
+                tell.add_child(self.update_frame())
+            case Token.DELETE:
+                tell.add_child(self.delete_frame())
             case _:
-                raise ParseError(f"unexpected token: {self.lookahead}")
+                self.fail()
 
-    def file(self):
-        self.eat(Token.FILE)
-        file_name = self.file_name()
-        with open(file_name, 'r') as file:
-            return Parser().parse("".join(file.readlines()))
+        return tell
 
-    def file_name(self) -> str:
-        file_name = ""
-        while self.lookahead is not None and self.lookahead.token_type != Token.END_FILE:
-            file_name += self.eat_ls([Token.STR, Token.FORWARD_SLASH, Token.DOT])
-        self.eat(Token.END_FILE)
-        return file_name
-
-    def add(self):
+    def add_frame(self) -> Node:
         self.eat(Token.ADD)
-        return KBOperation(KBOperation.ADD, self.frame())
 
-    def frame(self):
-        frame_type = self.eat_ls([Token.INSTANCE, Token.CLASS])
-        self.eat(Token.FRAME)
-        self.eat(Token.OP_PAREN)
-        frame_name = self.eat(Token.STR)
-        self.eat(Token.COMMA)
-        superclasses = self.ls()
-        self.eat(Token.COMMA)
-        subclasses = self.ls()
-        self.eat(Token.COMMA)
-        properties = self.properties()
-        self.eat(Token.COMMA)
-        relations = self.relations()
-        self.eat(Token.CL_PAREN)
-        return Frame(FrameSpecifier(frame_type, frame_name), set(superclasses), set(subclasses), properties, relations)
+        add_class = Node(Node.ADD_FRAME)
 
-    def ls(self):
-        ls = []
-        self.eat(Token.OP_SQUARE)
-        while self.lookahead is not None and self.lookahead.token_type != Token.CL_SQUARE:
-            ls.append(self.eat(Token.STR))
-            if self.lookahead.token_type == Token.COMMA:
-                self.eat(Token.COMMA)
-        self.eat(Token.CL_SQUARE)
-        return ls
+        frame_type = self.type()
+        add_class.add_child(frame_type)
 
-    def properties(self):
-        properties = {}
-        self.eat(Token.OP_CURLY)
-        while self.lookahead is not None and self.lookahead.token_type != Token.CL_CURLY:
-            key = self.eat(Token.STR)
-            self.eat(Token.COLON)
-            val = self.eat(Token.STR)
-            properties[key] = val
-            if self.lookahead is not None and self.lookahead.token_type == Token.CL_CURLY:
-                self.eat(Token.COMMA)
-        self.eat(Token.CL_CURLY)
-        return properties
+        frame_name = self.literal()
+        add_class.add_child(frame_name)
 
-    def relations(self):
-        relations = {}
-        self.eat(Token.OP_CURLY)
-        while self.lookahead is not None and self.lookahead.token_type != Token.CL_CURLY:
-            key = self.eat(Token.STR)
-            self.eat(Token.COLON)
-            val = self.ls()
-            relations[key] = val
-            if self.lookahead is not None and self.lookahead.token_type != Token.CL_CURLY:
-                self.eat(Token.COMMA)
-        self.eat(Token.CL_CURLY)
-        return relations
+        if not self.EOF() and self.lookahead.token_type == Token.OP_CURLY:
+            super_classes = self.list(Token.OP_CURLY, Token.CL_CURLY, self.literal)
+            add_class.add_child(super_classes)
 
-    def delete_or_view(self):
-        operation = None
-        if self.lookahead is not None and self.lookahead.token_type == Token.VIEW:
-            operation = KBOperation.VIEW
-        elif self.lookahead is not None and self.lookahead.token_type == Token.DELETE:
-            operation = KBOperation.DELETE
+        if not self.EOF() and self.lookahead.token_type == Token.OP_SQUARE:
+            slots = self.list(Token.OP_SQUARE, Token.CL_SQUARE, self.slot)
+            add_class.add_child(slots)
+
+        return add_class
+
+    def slot(self):
+        slot = Node(Node.SLOT)
+
+        slot_name = self.literal()
+        slot.add_child(slot_name)
+        self.eat(Token.COLON)
+
+        if self.lookahead.token_type != Token.CL_SQUARE and self.lookahead.token_type != Token.OP_CURLY and \
+                self.lookahead.token_type != Token.COMMA:
+            slot_value = self.literal()
+            slot.add_child(slot_value)
+
+        if self.lookahead.token_type != Token.CL_SQUARE and self.lookahead.token_type != Token.COMMA:
+            facets = self.list(Token.OP_CURLY, Token.CL_CURLY, self.facet)
+            slot.add_child(facets)
+
+        return slot
+
+    def facet(self) -> Node:
+        facet = Node(Node.FACET)
+
+        facet_name = self.literal()
+        facet.add_child(facet_name)
+
+        args = self.list(Token.OP_PAREN, Token.CL_PAREN, self.literal)
+        facet.add_child(args)
+
+        return facet
+
+    def update_frame(self) -> Node:
+        self.eat(Token.UPDATE)
+        tk_name = self.literal()
+
+        lookahead = self.lookahead
+        children = []
+        # print(lookahead.token_type)
+        match lookahead.token_type:
+            case Token.NAME:
+                self.eat(Token.NAME)
+                self.eat(Token.TO)
+                children = [Node(Node.UPDATE_NAME, None, [tk_name, self.literal()])]
+            case Token.TYPE:
+                self.eat(Token.TYPE)
+                self.eat(Token.TO)
+                children = [Node(Node.UPDATE_TYPE, None, [tk_name, self.type()])]
+            case Token.ADD | Token.DELETE:
+                children = [tk_name, self.add_super_or_slot()]
+            case Token.UPDATE:
+                self.eat(Token.UPDATE)
+                self.eat(Token.SLOT)
+                children = [tk_name, self.literal(), self.update_slot()]
+            case _:
+                self.fail()
+        return Node(Node.UPDATE_FRAME, None, children)
+
+    def delete_frame(self) -> Node:
+        self.eat(Token.DELETE)
+        name = self.eat(Token.STR)
+        return Node(Node.DELETE_FRAME, name)
+
+    def add_super_or_slot(self):
+        tok_type = self.lookahead.token_type
+        if tok_type == Token.ADD:
+            self.eat(Token.ADD)
+            tok_type = self.lookahead.token_type
+            if tok_type == Token.SUPER:
+                self.eat(Token.SUPER)
+                return Node(Node.ADD_SUPER, self.eat(Token.STR))
+            elif tok_type == Token.SLOT:
+                self.eat(Token.SLOT)
+                return Node(Node.ADD_SLOT, None, [self.slot()])
+            else:
+                self.fail()
+        elif tok_type == Token.DELETE:
+            self.eat(Token.DELETE)
+            tok_type = self.lookahead.token_type
+            if tok_type == Token.SUPER:
+                self.eat(Token.SUPER)
+                return Node(Node.DELETE_SUPER, None, [self.literal()])
+            elif tok_type == Token.SLOT:
+                self.eat(Token.SLOT)
+                return Node(Node.DELETE_SLOT, None, [self.literal()])
+        elif tok_type == Token.UPDATE:
+            return Node(Node.UPDATE_SLOT, None, [self.literal(), self.update_slot()])
         else:
             self.fail()
 
-        self.eat_ls([Token.VIEW, Token.DELETE])
-        frame_type = self.eat_ls([Token.INSTANCE, Token.CLASS])
-        self.eat(Token.FRAME)
-        frame_name = self.eat(Token.STR)
+    def update_slot(self):
+        tok_type = self.lookahead.token_type
+        if tok_type == Token.ADD:
+            self.eat(Token.ADD)
+            self.eat(Token.FACET)
+            return Node(Node.ADD_FACET, None, [self.facet()])
+        elif tok_type == Token.DELETE:
+            self.eat(Token.DELETE)
+            self.eat(Token.FACET)
+            return Node(Node.DELETE_FACET, self.eat(Token.STR))
+        else:
+            self.fail()
 
-        return KBOperation(operation, Frame(FrameSpecifier(frame_type, frame_name)))
+    def ask(self) -> Node:
+        pass
 
-    '''
-    UPDATE [INSTANCE | CLASS] FRAME frame_name update_statement |
-    
-    update_statement ::=
-    (ADD | DELETE) (SUPERCLASS | SUBCLASS) frame_name  |
-    (ADD | DELETE) (PROPERTY | RELATION) (properties | relation)
-    '''
+    def list(self, op_tok, cl_tok, element) -> Node:
+        self.eat(op_tok)
+        ls = Node(Node.LIST)
+        while self.lookahead.token_type != cl_tok:
+            ls.add_child(element())
+            if self.lookahead.token_type != cl_tok:
+                self.eat(Token.COMMA)
+        self.eat(cl_tok)
+        return ls
 
-    def update(self):
-        self.eat(Token.UPDATE)
-        frame_type = self.eat_ls([Token.INSTANCE, Token.CLASS])
-        self.eat(Token.FRAME)
-        frame_name = self.eat(Token.STR)
+    def type(self) -> Node:
+        lookahead = self.lookahead.token_type
+        self.advance()
+        match lookahead:
+            case Token.CLASS:
+                return Node(Node.TYPE, Node.CLASS)
+            case Token.INSTANCE:
+                return Node(Node.TYPE, Node.INSTANCE)
+            case _:
+                self.fail()
 
-        operation = None
-        if self.lookahead.token_type == Token.ADD:
-            operation = KBOperation.UPDATE_ADD
-        elif self.lookahead.token_type == Token.DELETE:
-            operation = KBOperation.UPDATE_DELETE
-        self.eat_ls([Token.ADD, Token.DELETE])
+    def literal(self) -> Node:
+        return Node(Node.LITERAL, self.eat(Token.STR))
 
-        target_part = self.eat_ls([Token.SUPERCLASSES, Token.SUBCLASSES, Token.PROPERTIES, Token.RELATIONS])
-        if target_part == Token.SUPERCLASSES:
-            return KBOperation(operation, Frame(FrameSpecifier(frame_type, frame_name), set(self.ls()), set(), {}, {}))
-        elif target_part == Token.SUBCLASSES:
-            return KBOperation(operation, Frame(FrameSpecifier(frame_type, frame_name), set(), set(self.ls()), {}, {}))
-        elif target_part == Token.PROPERTIES:
-            return KBOperation(operation, Frame(FrameSpecifier(frame_type, frame_name), set(), set(),
-                                                self.properties(), {}))
-        elif target_part == Token.RELATIONS:
-            return KBOperation(operation,
-                               Frame(FrameSpecifier(frame_type, frame_name), set(), set(), {}, self.relations()))
