@@ -1,7 +1,5 @@
 from knowledge_base.kb import KnowledgeBase
 from knowledge_base.input.interpreter import interpret
-from db import connection
-
 
 def main():
     kb = KnowledgeBase()

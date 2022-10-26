@@ -18,21 +18,25 @@ class Frame:
         self.slots = slots
 
     def add_superclass(self, superclass: str) -> bool:
+        if superclass in self.superclasses:
+            return False
         self.superclasses.add(superclass)
         return True
 
     def remove_superclass(self, superclass: str) -> bool:
+        if superclass not in self.superclasses:
+            return False
         self.superclasses.remove(superclass)
         return True
 
     def add_subclass(self, subclass: str) -> bool:
-        if self.is_instance():
+        if self.is_instance() or subclass in self.subclasses:
             return False
         self.superclasses.add(subclass)
         return True
 
     def remove_subclass(self, subclass: str) -> bool:
-        if self.is_instance():
+        if self.is_instance() or subclass not in self.subclasses:
             return False
         self.superclasses.remove(subclass)
         return True

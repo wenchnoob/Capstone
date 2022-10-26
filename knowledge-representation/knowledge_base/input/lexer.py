@@ -7,7 +7,6 @@ class LexerError(RuntimeError):
 
 class Token:
     TELL = 'TELL'
-    ASK = 'ASK'
     ADD = 'ADD'
     CLASS = 'CLASS'
     INSTANCE = 'INSTANCE'
@@ -28,6 +27,14 @@ class Token:
     COLON = 'COLON'
     STR = 'STR'
     TO = 'TO'
+
+    ASK = 'ASK'
+    KB = 'KB'
+    SUPERS = 'SUPERS'
+    SUBS = 'SUBS'
+    SLOTS = 'SLOTS'
+    TYPEOF = 'TYPEOF'
+    SUBBEDBY = 'SUBBEDBY'
 
     ## Maybe
     SEMICOLON = "SEMICOLON"
@@ -51,6 +58,12 @@ class Token:
         UPDATE: UPDATE,
         TYPE: TYPE,
         TO: TO,
+        KB: KB,
+        SUPERS: SUPERS,
+        SUBS: SUBS,
+        SLOTS: SLOTS,
+        TYPEOF: TYPEOF,
+        SUBBEDBY: SUBBEDBY,
         "(": OP_PAREN,
         ")": CL_PAREN,
         "[": OP_SQUARE,

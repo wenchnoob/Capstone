@@ -10,3 +10,20 @@ TELL UPDATE Rimuru UPDATE SLOT Stamina ADD FACET greater(Stamina, 10000)
 TELL UPDATE Rimuru UPDATE SLOT Stamina DELETE FACET greater
 TELL DELETE Rimuru
 
+TELL UPDATE Wenchy DELETE SUPER Human
+
+TELL ADD CLASS Human {Animal, Mammal} [Age:]
+TELL ADD INSTANCE Wenchy {Human} [Age:19, Gender:Male]
+TELL UPDATE Wenchy DELETE SUPER Human
+TELL UPDATE Wenchy ADD SUPER Slime
+TELL UPDATE Wenchy ADD SLOT Stamina:1000{number(Stamina)}
+TELL UPDATE WENCHy DELETE SLOT Gender
+
+ASK KB
+ASK Wenchy TYPE
+ASK Wenchy SLOTS
+ASK Wenchy SUPERS
+ASK Wenchy SUBS
+ASK Wenchy SLOT GENDER
+ASK Wenchy TYPEOF Human
+ASK Wenchy SUBBEDBY Human

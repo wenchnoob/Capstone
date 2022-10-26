@@ -33,6 +33,15 @@ class Node:
     LIST = 'LIST'
     SLOT = 'SLOT'
 
+    KB = 'KB'
+    SUPERS = 'SUPERS'
+    SUBS = 'SUBS'
+    SLOTS = 'SLOTS'
+    TYPE = 'TYPE'
+    TYPEOF = 'TYPEOF'
+    SUBBEDBY = 'SUBBEDBY'
+    SLOT = 'SLOT'
+
     # Maybe
     UPDATE_FACET = 'UPDATE_FACET'
 
@@ -180,7 +189,9 @@ class Parser:
                 self.eat(Token.TO)
                 children = [Node(Node.UPDATE_TYPE, None, [tk_name, self.type()])]
             case Token.ADD | Token.DELETE:
-                children = [tk_name, self.add_super_or_slot()]
+                child = self.add_or_delete_super_or_slot()
+                child.children.insert(0, tk_name)
+                children = [child]
             case Token.UPDATE:
                 self.eat(Token.UPDATE)
                 self.eat(Token.SLOT)
@@ -194,14 +205,14 @@ class Parser:
         name = self.eat(Token.STR)
         return Node(Node.DELETE_FRAME, name)
 
-    def add_super_or_slot(self):
+    def add_or_delete_super_or_slot(self):
         tok_type = self.lookahead.token_type
         if tok_type == Token.ADD:
             self.eat(Token.ADD)
             tok_type = self.lookahead.token_type
             if tok_type == Token.SUPER:
                 self.eat(Token.SUPER)
-                return Node(Node.ADD_SUPER, self.eat(Token.STR))
+                return Node(Node.ADD_SUPER, None, [self.literal()])
             elif tok_type == Token.SLOT:
                 self.eat(Token.SLOT)
                 return Node(Node.ADD_SLOT, None, [self.slot()])
@@ -235,7 +246,39 @@ class Parser:
             self.fail()
 
     def ask(self) -> Node:
-        pass
+        self.eat(Token.ASK)
+
+        if self.lookahead.token_type == Token.KB:
+            self.eat(Token.KB)
+            return Node(Node.ASK, None, [Node(Node.KB)])
+
+        frame_name = self.literal()
+        child = None
+
+        match self.lookahead.token_type:
+            case Token.SUPERS:
+                self.eat(Token.SUPERS)
+                child = Node(Node.SUPERS, None, [frame_name])
+            case Token.SUBS:
+                self.eat(Token.SUBS)
+                child = Node(Node.SUBS, None, [frame_name])
+            case Token.SLOTS:
+                self.eat(Token.SLOTS)
+                child = Node(Node.SLOTS, None, [frame_name])
+            case Token.TYPE:
+                self.eat(Token.TYPE)
+                child = Node(Node.TYPE, None, [frame_name])
+            case Token.TYPEOF:
+                self.eat(Token.TYPEOF)
+                child = Node(Node.TYPEOF, None, [frame_name, self.literal()])
+            case Token.SLOT:
+                self.eat(Token.SLOT)
+                child = Node(Node.SLOT, None, [frame_name, self.literal()])
+            case Token.SUBBEDBY:
+                self.eat(Token.SUBBEDBY)
+                child = Node(Node.SUBBEDBY, None, [frame_name, self.literal()])
+
+        return Node(Node.ASK, None, [child])
 
     def list(self, op_tok, cl_tok, element) -> Node:
         self.eat(op_tok)
@@ -260,4 +303,3 @@ class Parser:
 
     def literal(self) -> Node:
         return Node(Node.LITERAL, self.eat(Token.STR))
-
