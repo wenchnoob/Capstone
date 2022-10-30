@@ -1,7 +1,6 @@
 from knowledge_base.kb import KnowledgeBase
-from knowledge_base.input.parser import Parser
-from parser import Node
-from common.frame import Frame
+from knowledge_base.input.parser import Parser, Node
+from knowledge_base.frame import Frame, Slot
 
 
 class InterpreterError(RuntimeError):
@@ -48,11 +47,12 @@ def add_frame(kb, node) -> None:
             if elem.type == Node.LITERAL:
                 for elem in ls:
                     superclasses.add(elem.value)
-                if len(children) >= 4:
-                    ls = node.children[3].children
-                    add_slots(ls, slots)
             elif elem.type == Node.SLOT:
                 add_slots(ls, slots)
+
+    if len(children) >= 4:
+        ls = node.children[3].children
+        add_slots(ls, slots)
 
     kb.add_frame(Frame(frame_type, frame_name, superclasses, slots))
 
@@ -60,8 +60,21 @@ def add_frame(kb, node) -> None:
 def add_slots(children, slots) -> None:
     for slot in children:
         name = slot.children[0].value
-        value = slot.children[1].value if len(slot.children) >= 2 else None
-        slots[name] = value
+        value = None
+        facets = None
+        if len(slot.children) >= 2:
+            c = slot.children[1]
+
+            if c.type == Node.LITERAL:
+                value = c.value
+            elif c.type == Node.FACET_LIST:
+                facets = [x.value for x in c.children]
+
+        if len(slot.children) >= 3:
+            c = slot.children[2]
+            facets = [x.value for x in c.children]
+
+        slots[name] = Slot(value, facets)
 
 
 def delete_frame(kb, node) -> None:
@@ -69,19 +82,12 @@ def delete_frame(kb, node) -> None:
 
 
 def update_frame(kb, node) -> None:
-    # print(node)
-
     child = node.children[0]
-
     match child.type:
         case Node.UPDATE_TYPE:
             update_type(kb, child)
         case Node.UPDATE_NAME:
             update_name(kb, child)
-        case Node.UPDATE_SLOT:
-            update_slot(kb, child)
-        case Node.UPDATE_FACET:
-            update_facet(kb, child)
         case Node.ADD_SUPER:
             add_super(kb, child)
         case Node.DELETE_SUPER:
@@ -90,6 +96,16 @@ def update_frame(kb, node) -> None:
             add_slot(kb, child)
         case Node.DELETE_SLOT:
             delete_slot(kb, child)
+        case Node.ADD_VALUE:
+            add_value(kb, child)
+        case Node.DELETE_VALUE:
+            delete_value(kb, child)
+        case Node.ADD_FACET:
+            add_facet(kb, child)
+        case Node.DELETE_FACET:
+            delete_facet(kb, child)
+        case Node.UPDATE_SLOT_VALUE:
+            update_value(kb, child)
         case _:
             raise InterpreterError(f"Illegal node {child}")
 
@@ -112,12 +128,11 @@ def update_type(kb, node):
     kb.update_type(target, new_type)
 
 
-# Fridge
-
 def update_name(kb, node):
     children = node.children
     target, new_name = [n.value for n in children]
     kb.update_name(target, new_name)
+
 
 def add_slot(kb, node):
     children = node.children
@@ -130,16 +145,33 @@ def add_slot(kb, node):
 
 
 def delete_slot(kb, node):
-    children = node.children
-    target, slot = [n.value for n in children]
-    kb.remove_slot(target, slot)
-
-def update_slot(kb, node):
-    pass
+    target, slot = [n.value for n in node.children]
+    kb.delete_slot(target, slot)
 
 
-def update_facet(kb, node):
-    pass
+def add_value(kb, node):
+    frame_name, slot_name, value = [x.value for x in node.children]
+    kb.add_value(frame_name, slot_name, value)
+
+
+def delete_value(kb, node):
+    frame_name, slot_name, value = [x.value for x in node.children]
+    kb.delete_value(frame_name, slot_name, value)
+
+
+def add_facet(kb, node):
+    frame_name, slot_name, facet = [x.value for x in node.children]
+    kb.add_facet(frame_name, slot_name, facet)
+
+
+def delete_facet(kb, node):
+    frame_name, slot_name, facet = [x.value for x in node.children]
+    kb.delete_facet(frame_name, slot_name, facet)
+
+
+def update_value(kb, node):
+    frame_name, slot_name, value = [x.value for x in node.children]
+    kb.update_value(frame_name, slot_name, value)
 
 
 def interpret_ask(kb: KnowledgeBase, node: Node) -> None:
@@ -147,6 +179,9 @@ def interpret_ask(kb: KnowledgeBase, node: Node) -> None:
     match child.type:
         case Node.KB:
             print(kb)
+        case Node.ASK_FRAME:
+            frame_name = child.children[0].value
+            print(kb.get_frame(frame_name))
         case Node.TYPE:
             frame_name = child.children[0].value
             frame = kb.get_frame(frame_name)
@@ -200,24 +235,3 @@ def interpret_ask(kb: KnowledgeBase, node: Node) -> None:
                 print(sub_name in frame.subclasses)
             else:
                 print(None)
-
-
-# TELL ADD CLASS Human {Animal, Mammal} [Age:]
-
-def main():
-    kb = KnowledgeBase()
-    x = input()
-    while True:
-        if x == "VIEW":
-            frame = input("> Frame? (empty for all): ")
-            if frame != "":
-                print(kb.view_frame(frame))
-            else:
-                pass
-        else:
-            interpret(kb, x)
-        x = input()
-
-
-if __name__ == '__main__':
-    main()

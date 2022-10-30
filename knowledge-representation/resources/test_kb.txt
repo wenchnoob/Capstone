@@ -1,0 +1,29 @@
+
+tell add class calendar {} [current_day:{day}]
+tell add instance my_calendar {calendar} []
+
+tell add class day {} [number:{number}]
+tell add instance day_1 {day} []
+tell update day_1 update slot number:1
+
+tell update my_calendar update slot current_day:day1
+
+tell add class food {} [lifespan:{number}, start_day:{day}, spoilage_day:{day}, spoiled:]
+
+tell add class apple {food} []
+
+tell add instance apple1 {apple}
+tell update apple1 slot lifespan:3
+
+tell add instance day_2 {day} []
+tell update day_2 update slot number:2
+tell update my_calendar update slot current_day:day2
+
+tell add instance day_3 {day} []
+tell update day_3 update slot number:3
+tell update my_calendar update slot current_day:day3
+
+tell add instance day_4 {day} []
+tell update day_4 update slot number:4
+tell update my_calendar update slot current_day:day4
+

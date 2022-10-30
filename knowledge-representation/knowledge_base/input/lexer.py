@@ -33,16 +33,10 @@ class Token:
     SUPERS = 'SUPERS'
     SUBS = 'SUBS'
     SLOTS = 'SLOTS'
+    ADD_VALUE = 'ADD_VALUE'
+    DELETE_VALUE = 'DELETE_VALUE'
     TYPEOF = 'TYPEOF'
     SUBBEDBY = 'SUBBEDBY'
-
-    ## Maybe
-    SEMICOLON = "SEMICOLON"
-    DOT = "DOT"
-    FILE = "FILE"
-    END_FILE = "ENDFILE"
-    FORWARD_SLASH = "FORWARD_SLASH"
-
 
     TYPES = {
         TELL: TELL,
@@ -62,6 +56,8 @@ class Token:
         SUPERS: SUPERS,
         SUBS: SUBS,
         SLOTS: SLOTS,
+        ADD_VALUE: ADD_VALUE,
+        DELETE_VALUE: DELETE_VALUE,
         TYPEOF: TYPEOF,
         SUBBEDBY: SUBBEDBY,
         "(": OP_PAREN,
@@ -127,6 +123,7 @@ class Tokenizer:
         s.token_type = Token.STR
         self.idx += 1
         return s
+
     def string(self):
         cur = self.text[self.idx] if self.has_next_token() else ''
 
@@ -141,4 +138,3 @@ class Tokenizer:
 
         raise LexerError(f"Unexpected token: {cur}")
 
-# TELL ADD CLASS Human {Animal, Mammal} [AGE:12{}]

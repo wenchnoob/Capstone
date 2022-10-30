@@ -21,29 +21,29 @@ class Node:
     ADD_SLOT = 'ADD_SLOT'
     DELETE_SLOT = 'DELETE_SLOT'
 
-    UPDATE_SLOT = 'UPDATE_SLOT'
+    UPDATE_SLOT_VALUE = 'UPDATE_SLOT_VALUE'
     FACET = 'FACET'
     ADD_FACET = 'ADD_FACET'
     DELETE_FACET = 'DELETE_FACET'
 
     ASK = 'ASK'
+    ASK_FRAME = 'ASK_FRAME'
     TYPE = 'TYPE'
 
     LITERAL = 'LITERAL'
     LIST = 'LIST'
+    LITERAL_LIST = 'LITERAL_LIST'
+    FACET_LIST = 'FACET_LIST'
     SLOT = 'SLOT'
 
     KB = 'KB'
     SUPERS = 'SUPERS'
     SUBS = 'SUBS'
     SLOTS = 'SLOTS'
-    TYPE = 'TYPE'
     TYPEOF = 'TYPEOF'
     SUBBEDBY = 'SUBBEDBY'
-    SLOT = 'SLOT'
-
-    # Maybe
-    UPDATE_FACET = 'UPDATE_FACET'
+    ADD_VALUE = 'ADD_VALUE'
+    DELETE_VALUE = 'DELETE_VALUE'
 
     def __init__(self, type=None, value=None, children=None):
         if children is None:
@@ -57,6 +57,9 @@ class Node:
 
     def __str__(self):
         return self.str(0)
+
+    def __repr__(self):
+        return self.__str__()
 
     def str(self, d):
         space = "    "
@@ -134,11 +137,11 @@ class Parser:
         add_class.add_child(frame_name)
 
         if not self.EOF() and self.lookahead.token_type == Token.OP_CURLY:
-            super_classes = self.list(Token.OP_CURLY, Token.CL_CURLY, self.literal)
+            super_classes = self.list(Node.LITERAL_LIST, Token.OP_CURLY, Token.CL_CURLY, self.literal)
             add_class.add_child(super_classes)
 
         if not self.EOF() and self.lookahead.token_type == Token.OP_SQUARE:
-            slots = self.list(Token.OP_SQUARE, Token.CL_SQUARE, self.slot)
+            slots = self.list(Node.LIST, Token.OP_SQUARE, Token.CL_SQUARE, self.slot)
             add_class.add_child(slots)
 
         return add_class
@@ -156,21 +159,10 @@ class Parser:
             slot.add_child(slot_value)
 
         if self.lookahead.token_type != Token.CL_SQUARE and self.lookahead.token_type != Token.COMMA:
-            facets = self.list(Token.OP_CURLY, Token.CL_CURLY, self.facet)
+            facets = self.list(Node.FACET_LIST, Token.OP_CURLY, Token.CL_CURLY, self.literal)
             slot.add_child(facets)
 
         return slot
-
-    def facet(self) -> Node:
-        facet = Node(Node.FACET)
-
-        facet_name = self.literal()
-        facet.add_child(facet_name)
-
-        args = self.list(Token.OP_PAREN, Token.CL_PAREN, self.literal)
-        facet.add_child(args)
-
-        return facet
 
     def update_frame(self) -> Node:
         self.eat(Token.UPDATE)
@@ -195,7 +187,11 @@ class Parser:
             case Token.UPDATE:
                 self.eat(Token.UPDATE)
                 self.eat(Token.SLOT)
-                children = [tk_name, self.literal(), self.update_slot()]
+                slot_name = self.literal()
+                child = self.update_slot()
+                child.children.insert(0, tk_name)
+                child.children.insert(1, slot_name)
+                children = [child]
             case _:
                 self.fail()
         return Node(Node.UPDATE_FRAME, None, children)
@@ -227,21 +223,32 @@ class Parser:
             elif tok_type == Token.SLOT:
                 self.eat(Token.SLOT)
                 return Node(Node.DELETE_SLOT, None, [self.literal()])
-        elif tok_type == Token.UPDATE:
-            return Node(Node.UPDATE_SLOT, None, [self.literal(), self.update_slot()])
+        # elif tok_type == Token.UPDATE:
+        #     self.eat(Token.UPDATE)
+        #     return Node(Node.UPDATE_SLOT, None, [self.literal(), self.update_slot()])
         else:
             self.fail()
-
+# tell update wenchy update slot gender add_value male
+# tell update wenchy update slot gender add facet number
     def update_slot(self):
         tok_type = self.lookahead.token_type
         if tok_type == Token.ADD:
             self.eat(Token.ADD)
             self.eat(Token.FACET)
-            return Node(Node.ADD_FACET, None, [self.facet()])
+            return Node(Node.ADD_FACET, None, [self.literal()])
         elif tok_type == Token.DELETE:
             self.eat(Token.DELETE)
             self.eat(Token.FACET)
-            return Node(Node.DELETE_FACET, self.eat(Token.STR))
+            return Node(Node.DELETE_FACET, None, [self.literal()])
+        elif tok_type == Token.ADD_VALUE:
+            self.eat(Token.ADD_VALUE)
+            return Node(Node.ADD_VALUE, None, [self.literal()])
+        elif tok_type == Token.DELETE_VALUE:
+            self.eat(Token.DELETE_VALUE)
+            return Node(Node.DELETE_FACET, None, [self.literal()])
+        elif tok_type == Token.COLON:
+            self.eat(Token.COLON)
+            return Node(Node.UPDATE_SLOT_VALUE, None, [self.literal()])
         else:
             self.fail()
 
@@ -254,6 +261,9 @@ class Parser:
 
         frame_name = self.literal()
         child = None
+
+        if self.lookahead is None:
+            return Node(Node.ASK, None, [Node(Node.ASK_FRAME, None, [frame_name])])
 
         match self.lookahead.token_type:
             case Token.SUPERS:
@@ -280,9 +290,9 @@ class Parser:
 
         return Node(Node.ASK, None, [child])
 
-    def list(self, op_tok, cl_tok, element) -> Node:
+    def list(self, ls_type, op_tok, cl_tok, element) -> Node:
         self.eat(op_tok)
-        ls = Node(Node.LIST)
+        ls = Node(ls_type)
         while self.lookahead.token_type != cl_tok:
             ls.add_child(element())
             if self.lookahead.token_type != cl_tok:
@@ -292,14 +302,17 @@ class Parser:
 
     def type(self) -> Node:
         lookahead = self.lookahead.token_type
-        self.advance()
         match lookahead:
             case Token.CLASS:
+                self.advance()
                 return Node(Node.TYPE, Node.CLASS)
             case Token.INSTANCE:
+                self.advance()
                 return Node(Node.TYPE, Node.INSTANCE)
             case _:
                 self.fail()
 
     def literal(self) -> Node:
         return Node(Node.LITERAL, self.eat(Token.STR))
+
+
