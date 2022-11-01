@@ -177,7 +177,7 @@ class KnowledgeBase:
                     if superclass is not None:
                         new_supers.update(superclass.superclasses)
                         for key in superclass.slots:
-                            frame.update_slot(key, superclass.slots.get(key))
+                            frame.update_slot(key, copy.deepcopy(superclass.slots.get(key)))
                 frame.superclasses.update(new_supers)
 
                 if frame.typeof('FOOD') and frame.is_instance():

@@ -30,7 +30,10 @@ class Frame:
     INSTANCE = 'INSTANCE'
     CLASS = 'CLASS'
 
-    def __init__(self, frame_type: str, frame_name: str, superclasses: set = None,
+    def __init__(self,
+                 frame_type: str,
+                 frame_name: str,
+                 superclasses: set = None,
                  slots: dict = None):
 
         if superclasses is None:

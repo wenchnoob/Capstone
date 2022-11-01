@@ -17,3 +17,5 @@ ask apple1 slot spoiled
 
 ask my_calender slot current_day
 ask apple1 slot spoilage_day
+
+tell add instance day_2 {day} [] tell update day_2 update slot number:2 tell update my_calendar update slot current_day:day2 tell add instance day_3 {day} [] tell update day_3 update slot number:3 tell update my_calendar update slot current_day:day3 tell add instance day_4 {day} [] tell update day_4 update slot number:4 tell update my_calendar update slot current_day:day4

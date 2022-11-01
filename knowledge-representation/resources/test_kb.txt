@@ -9,9 +9,7 @@ tell update day_1 update slot number:1
 tell update my_calendar update slot current_day:day1
 
 tell add class food {} [lifespan:{number}, start_day:{day}, spoilage_day:{day}, spoiled:]
-
 tell add class apple {food} []
-
 tell add instance apple1 {apple}
 tell update apple1 slot lifespan:3
 
